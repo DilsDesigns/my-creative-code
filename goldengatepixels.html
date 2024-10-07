@@ -1,0 +1,164 @@
+<!DOCTYPE html> <!-- Add this line at the top -->
+<html>
+<body>
+    <canvas id="myCanvas" width="800" height="800"></canvas>
+    <script>
+        let canvas = document.getElementById('myCanvas');
+        let context = canvas.getContext('2d', { willReadFrequently: true });
+
+        // Load the Golden Gate Bridge image
+        let img = new Image();
+        img.src = 'golden-gate.jpg';  // Correct path to your image
+
+        let squareSize = 10;  // Starting size of the pixelated blocks
+        let minSquareSize = 10;  // Minimum size of the blocks
+        let shrinking = true;  // Controls whether we are shrinking or transitioning
+        let transitionStartTime;  // To track when the transition starts
+        let transitionDuration = 1000000;  // 5 seconds for color transition
+        let remainingBlocks = [];  // List of blocks to transition
+
+        img.onload = function () {
+            
+            // Initialize the grid and create a list of block coordinates
+            function initializeGrid() {
+                let numCols = Math.ceil(canvas.width / squareSize);
+                let numRows = Math.ceil(canvas.height / squareSize);
+                remainingBlocks = [];
+
+                for (let row = 0; row < numRows; row++) {
+                    for (let col = 0; col < numCols; col++) {
+                        remainingBlocks.push({ row, col });  // Store each block
+                    }
+                }
+
+                // Randomize block transition order
+                remainingBlocks = remainingBlocks.sort(() => Math.random() - 0.5);
+            }
+
+            // Phase 1: Draw colorful shrinking blocks
+            function drawColorfulBlocks() {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+                let numCols = Math.ceil(canvas.width / squareSize);
+                let numRows = Math.ceil(canvas.height / squareSize);
+
+                for (let row = 0; row < numRows; row++) {
+                    for (let col = 0; col < numCols; col++) {
+                        let x = col * squareSize;
+                        let y = row * squareSize;
+
+                        // Draw random color blocks
+                        let randomColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+                        context.fillStyle = randomColor;
+                        context.fillRect(x, y, squareSize, squareSize);
+                    }
+                }
+
+                // Shrink blocks over time
+                if (squareSize > minSquareSize) {
+                    squareSize *= 0.95;
+                } else {
+                    shrinking = false;  // Stop shrinking and start transitioning
+                    transitionStartTime = Date.now();
+                }
+            }
+
+            // Phase 2: Transition the blocks to the image colors gradually as the blocks shrink
+            function transitionToImageColors() {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+                let numCols = Math.ceil(canvas.width / squareSize);
+                let numRows = Math.ceil(canvas.height / squareSize);
+                let currentTime = Date.now();
+                let elapsedTime = currentTime - transitionStartTime;
+                let progress = Math.min(elapsedTime / transitionDuration, 1);  // Transition progress between 0 and 1
+
+                // Calculate how many blocks should have transitioned based on the shrinking size
+                let blocksToTransitionNow = Math.floor(progress * (numRows * numCols));
+
+                // Transition a portion of the remaining blocks
+                for (let i = 0; i < blocksToTransitionNow && remainingBlocks.length > 0; i++) {
+                    let { row, col } = remainingBlocks.pop();  // Get the next block from the randomized array
+                    let x = col * squareSize;
+                    let y = row * squareSize;
+
+                    // Calculate the image coordinates that correspond to the block's position
+                    let imgX = Math.floor((x / canvas.width) * img.width);
+                    let imgY = Math.floor((y / canvas.height) * img.height);
+
+                    // Draw the corresponding part of the image on the canvas
+                    context.drawImage(img, imgX, imgY, 1, 1, x, y, squareSize, squareSize);
+                }
+
+                // Redraw all blocks to ensure proper display
+                for (let row = 0; row < numRows; row++) {
+                    for (let col = 0; col < numCols; col++) {
+                        let x = col * squareSize;
+                        let y = row * squareSize;
+
+                        if (remainingBlocks.some(b => b.row === row && b.col === col)) {
+                            // If this block has not transitioned yet, draw a random color
+                            let randomColor = `rgb(${Math.random() * 255}, ${Math.random() * 255}, ${Math.random() * 255})`;
+                            context.fillStyle = randomColor;
+                            context.fillRect(x, y, squareSize, squareSize);
+                        } else {
+                            // If this block has transitioned, draw the image color
+                            let imgX = Math.floor((x / canvas.width) * img.width);
+                            let imgY = Math.floor((y / canvas.height) * img.height);
+                            context.drawImage(img, imgX, imgY, 1, 1, x, y, squareSize, squareSize);
+                        }
+                    }
+                }
+
+                // Ensure all blocks transition before moving to the next phase
+                if (remainingBlocks.length === 0) {
+                    // Add a pause before moving to phase 3
+                    paused = true // Pause the animation
+                    setTimeout(() => {
+                     phase = 3;  // Move to Phase 3 after the pause
+                     paused = false; // Unpause after delay
+                    }, 50000); // Delay time in milliseconds
+                    
+                }
+            }
+
+            // Phase 3: Display the full image
+            function displayFullImage() {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);  // Show full image
+
+                setTimeout(() => {
+                    squareSize = 10;  // Reset square size
+                    shrinking = true;  // Start shrinking again
+                    initializeGrid();  // Reinitialize the grid
+                }, 2000);
+            }
+
+            // Main draw loop
+            function draw2() {
+                if (shrinking) {
+                    drawColorfulBlocks();  // Phase 1: Shrinking colorful blocks
+                } else if (remainingBlocks.length > 0) {
+                    console.log('starting transition to image colors.');
+
+                    transitionToImageColors();  // Phase 2: Transition to image colors
+                } else {
+                    console.log("displaying full image")
+                    displayFullImage();  // Phase 3: Display the full image
+                }
+
+                requestAnimationFrame(draw2);  // Continue the animation loop
+            }
+
+            // Initialize and start the animation
+            initializeGrid();
+            draw2();
+            console.log("Finished Drawing")
+        };
+
+        img.onerror = function () {
+            console.log('Error loading the image. Check the file path.');
+        };
+    </script>
+</body>
+</html>
